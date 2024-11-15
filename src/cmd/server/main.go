@@ -7,9 +7,15 @@ import (
     "net"
     "os"
     "os/signal"
+    "time"
+    "io"
+    "errors"
 
     "google.golang.org/grpc"
     "google.golang.org/grpc/reflection"
+    "google.golang.org/grpc/codes"
+    "google.golang.org/grpc/status"
+    "google.golang.org/genproto/googleapis/rpc/errdetails"
     hellopb "mygrpc/pkg/grpc"
 )
 
@@ -24,11 +30,75 @@ func NewMyServer() *myServer {
 
 // Hello メソッドの実装
 func (s *myServer) Hello(ctx context.Context, req *hellopb.HelloRequest) (*hellopb.HelloResponse, error) {
+
+    // 何か処理をしてエラーが発生した場合
+    //err := status.Error(codes.Unknown, "unknown error occurred")
+
+    stat := status.New(codes.Unknown, "unknown error occurred")
+    stat, _ = stat.WithDetails(&errdetails.DebugInfo{
+        Detail: "error occurred in Hello method",
+    })
+    err := stat.Err()
+
+    // エラーを返す
+    return nil, err
+
     // リクエストからnameフィールドを取り出して
     // "Hello, [名前]!"というレスポンスを返す
-    return &hellopb.HelloResponse{
-        Message: fmt.Sprintf("Hello, %s!", req.GetName()),
-    }, nil
+    // return &hellopb.HelloResponse{
+    //     Message: fmt.Sprintf("Hello, %s!", req.GetName()),
+    // }, nil
+}
+// HelloServerStream メソッドの実装
+
+func (s *myServer) HelloServerStream(req *hellopb.HelloRequest, stream hellopb.GreetingService_HelloServerStreamServer) error {
+	resCount := 5
+	for i := 0; i < resCount; i++ {
+		if err := stream.Send(&hellopb.HelloResponse{
+			Message: fmt.Sprintf("[%d] Hello, %s!", i, req.GetName()),
+		}); err != nil {
+			return err
+		}
+		time.Sleep(time.Second * 1)
+	}
+	return nil
+}
+
+// HelloClientStream メソッドの実装
+func (s *myServer) HelloClientStream(stream hellopb.GreetingService_HelloClientStreamServer) error {
+	nameList := make([]string, 0)
+	for {
+		req, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			message := fmt.Sprintf("Hello, %v!", nameList)
+			return stream.SendAndClose(&hellopb.HelloResponse{
+				Message: message,
+			})
+		}
+		if err != nil {
+			return err
+		}
+		nameList = append(nameList, req.GetName())
+	}
+}
+
+// HelloBiStreams メソッドの実装
+func (s *myServer) HelloBiStreams(stream hellopb.GreetingService_HelloBiStreamsServer) error {
+	for {
+		req, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		message := fmt.Sprintf("Hello, %v!", req.GetName())
+		if err := stream.Send(&hellopb.HelloResponse{
+			Message: message,
+		}); err != nil {
+			return err
+		}
+	}
 }
 
 func main() {
