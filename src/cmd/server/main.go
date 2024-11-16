@@ -30,7 +30,6 @@ func NewMyServer() *myServer {
 
 // Hello メソッドの実装
 func (s *myServer) Hello(ctx context.Context, req *hellopb.HelloRequest) (*hellopb.HelloResponse, error) {
-
     // 何か処理をしてエラーが発生した場合
     //err := status.Error(codes.Unknown, "unknown error occurred")
 
@@ -49,56 +48,56 @@ func (s *myServer) Hello(ctx context.Context, req *hellopb.HelloRequest) (*hello
     //     Message: fmt.Sprintf("Hello, %s!", req.GetName()),
     // }, nil
 }
-// HelloServerStream メソッドの実装
 
+// HelloServerStream メソッドの実装
 func (s *myServer) HelloServerStream(req *hellopb.HelloRequest, stream hellopb.GreetingService_HelloServerStreamServer) error {
-	resCount := 5
-	for i := 0; i < resCount; i++ {
-		if err := stream.Send(&hellopb.HelloResponse{
-			Message: fmt.Sprintf("[%d] Hello, %s!", i, req.GetName()),
-		}); err != nil {
-			return err
-		}
-		time.Sleep(time.Second * 1)
-	}
-	return nil
+    resCount := 5
+    for i := 0; i < resCount; i++ {
+        if err := stream.Send(&hellopb.HelloResponse{
+            Message: fmt.Sprintf("[%d] Hello, %s!", i, req.GetName()),
+        }); err != nil {
+            return err
+        }
+        time.Sleep(time.Second * 1)
+    }
+    return nil
 }
 
 // HelloClientStream メソッドの実装
 func (s *myServer) HelloClientStream(stream hellopb.GreetingService_HelloClientStreamServer) error {
-	nameList := make([]string, 0)
-	for {
-		req, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			message := fmt.Sprintf("Hello, %v!", nameList)
-			return stream.SendAndClose(&hellopb.HelloResponse{
-				Message: message,
-			})
-		}
-		if err != nil {
-			return err
-		}
-		nameList = append(nameList, req.GetName())
-	}
+    nameList := make([]string, 0)
+    for {
+        req, err := stream.Recv()
+        if errors.Is(err, io.EOF) {
+            message := fmt.Sprintf("Hello, %v!", nameList)
+            return stream.SendAndClose(&hellopb.HelloResponse{
+                Message: message,
+            })
+        }
+        if err != nil {
+            return err
+        }
+        nameList = append(nameList, req.GetName())
+    }
 }
 
 // HelloBiStreams メソッドの実装
 func (s *myServer) HelloBiStreams(stream hellopb.GreetingService_HelloBiStreamsServer) error {
-	for {
-		req, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		message := fmt.Sprintf("Hello, %v!", req.GetName())
-		if err := stream.Send(&hellopb.HelloResponse{
-			Message: message,
-		}); err != nil {
-			return err
-		}
-	}
+    for {
+        req, err := stream.Recv()
+        if errors.Is(err, io.EOF) {
+            return nil
+        }
+        if err != nil {
+            return err
+        }
+        message := fmt.Sprintf("Hello, %v!", req.GetName())
+        if err := stream.Send(&hellopb.HelloResponse{
+            Message: message,
+        }); err != nil {
+            return err
+        }
+    }
 }
 
 func main() {
@@ -110,7 +109,19 @@ func main() {
     }
 
     // 2. gRPCサーバーを作成
-    s := grpc.NewServer()
+    s := grpc.NewServer(
+        /*grpc.ChainUnaryInterceptor(
+			myUnaryServerInterceptor1,
+			myUnaryServerInterceptor2,
+		),
+
+        grpc.ChainStreamInterceptor(
+			myStreamServerInterceptor1,
+			myStreamServerInterceptor2,
+		),
+        grpc.UnaryInterceptor(myUnaryServerInterceptor1),
+        grpc.StreamInterceptor(myStreamServerInterceptor1),*/
+    )
 
     // 3. gRPCサーバーにGreetingServiceを登録
     hellopb.RegisterGreetingServiceServer(s, NewMyServer())
